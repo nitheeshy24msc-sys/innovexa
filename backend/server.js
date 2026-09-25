@@ -43,9 +43,22 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(async (req, res, next) => {
   if (req.path.startsWith('/api') && req.path !== '/api/health') {
     try {
-      await connectDB();
+      const conn = await connectDB();
+      // On Vercel, if connection fails (e.g. no valid MONGODB_URI), we must stop the request.
+      if (!conn && (process.env.VERCEL || process.env.NETLIFY)) {
+        return res.status(500).json({
+          success: false,
+          message: 'Database Connection Error: Please configure a valid MongoDB Atlas MONGODB_URI in your Vercel Environment Variables.'
+        });
+      }
     } catch (err) {
       console.error("Database connection middleware notice:", err.message);
+      if (process.env.VERCEL || process.env.NETLIFY) {
+        return res.status(500).json({
+          success: false,
+          message: 'Database Connection Error: ' + err.message
+        });
+      }
     }
   }
   next();
